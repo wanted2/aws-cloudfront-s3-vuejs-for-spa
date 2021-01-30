@@ -1,0 +1,76 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: My Single Page App for blog 
+
+Resources: 
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      AccessControl: Private
+  MyBlogBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref S3Bucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Action:
+              - "s3:GetObject"
+            Effect: "Allow"
+            Resource: !Join ["/", [!GetAtt S3Bucket.Arn, "*"]]
+            Principal:
+              CanonicalUser: !GetAtt CloudFrontOriginAccessIdentity.S3CanonicalUserId
+          - Action:
+              - "s3:ListBucket"
+            Effect: "Allow"
+            Resource: !GetAtt S3Bucket.Arn
+            Principal:
+              CanonicalUser: !GetAtt CloudFrontOriginAccessIdentity.S3CanonicalUserId
+  CloudfrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Comment: CFD for my blog
+        CustomErrorResponses: 
+          - ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /404.html
+          - ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /403.html
+          - ErrorCode: 500
+            ResponseCode: 200
+            ResponsePagePath: /500.html
+        DefaultCacheBehavior: 
+            AllowedMethods: 
+              - GET
+              - HEAD
+            CachedMethods: 
+              - GET
+              - HEAD
+            CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+            TargetOriginId: protected-bucket
+            ViewerProtocolPolicy: redirect-to-https
+        DefaultRootObject: index.html
+        Enabled: true
+        HttpVersion: http2
+        IPV6Enabled: true
+        Origins:
+          - DomainName: !Sub "${S3Bucket}.s3.amazonaws.com"
+            Id: protected-bucket
+            S3OriginConfig:
+              OriginAccessIdentity: !Sub "origin-access-identity/cloudfront/${CloudFrontOriginAccessIdentity}"
+      Tags:
+        - Key: job
+          Value: my-blog
+  CloudFrontOriginAccessIdentity:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: "CloudFront OAI"
+
+Outputs:
+  URL:
+    Description: CloudFront URL
+    Value: !GetAtt CloudfrontDistribution.DomainName
+    Export: 
+      Name: URL

@@ -1,0 +1,3 @@
+[submodule "www/blog"]
+	path = www/blog
+	url = https://github.com/snipcart/vue-blog-demo.git
